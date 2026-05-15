@@ -6,30 +6,28 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	chi "github.com/go-chi/chi/v5"
-	chimid "github.com/go-chi/chi/v5/middleware"
-
-	"github.com/distributed-db/api-gateway/config"
-	"github.com/distributed-db/api-gateway/internal/auth"
-	"github.com/distributed-db/api-gateway/internal/health"
-	"github.com/distributed-db/api-gateway/internal/ratelimit"
-	"github.com/distributed-db/api-gateway/internal/router"
+	masterauth "github.com/distributed-db/master/internal/auth"
+	"github.com/distributed-db/master/config"
+	"github.com/distributed-db/master/internal/api"
+	"github.com/distributed-db/master/internal/cluster"
+	"github.com/distributed-db/master/internal/db"
+	"github.com/distributed-db/master/internal/election"
+	"github.com/distributed-db/master/internal/query"
+	"github.com/distributed-db/master/internal/replication"
+	"github.com/distributed-db/master/internal/wal"
 )
 
 func main() {
-	cfgPath := flag.String("config", "config/gateway.yaml", "path to gateway.yaml")
+	cfgPath := flag.String("config", "config/master.json", "path to master.json")
 	flag.Parse()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
 	if err := run(*cfgPath, logger); err != nil {
@@ -39,116 +37,92 @@ func main() {
 }
 
 func run(cfgPath string, logger *slog.Logger) error {
-	// ── Load configuration ────────────────────────────────────────────────────
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// ── Build dependencies ────────────────────────────────────────────────────
-	signer := auth.NewSigner(cfg.Auth.HMACSecret, cfg.Auth.TokenTTL)
-	limiter := ratelimit.New(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
+	// ── Storage ───────────────────────────────────────────────────────────────
+	store, err := db.New(cfg.MySQL.DSN)
+	if err != nil {
+		return fmt.Errorf("connect mysql: %w", err)
+	}
+	defer store.Close()
 
-	workerURLs := make([]string, len(cfg.Nodes.Workers))
-	for i, w := range cfg.Nodes.Workers {
-		workerURLs[i] = w.Address
+	// ── WAL ───────────────────────────────────────────────────────────────────
+	if err := os.MkdirAll("/data", 0755); err != nil {
+		return fmt.Errorf("create data dir: %w", err)
+	}
+	walLog, err := wal.Open(cfg.WAL.Path)
+	if err != nil {
+		return fmt.Errorf("open wal: %w", err)
+	}
+	defer walLog.Close()
+
+	// ── Cluster registry ──────────────────────────────────────────────────────
+	registry := cluster.NewRegistry(cfg.HeartbeatInterval(), cfg.Cluster.MissThreshold, logger)
+	for i, addr := range cfg.Cluster.WorkerAddresses {
+		registry.Register(cluster.Node{
+			ID:      fmt.Sprintf("%d", i+2),
+			Address: addr,
+			Role:    cluster.RoleWorker,
+			Status:  cluster.StatusAlive,
+		})
 	}
 
-	rt := router.New(router.Config{
-		MasterURL:  cfg.Nodes.Master.Address,
-		WorkerURLs: workerURLs,
-		Signer:     signer,
-		Logger:     logger,
-	})
-
-	workerRefs := make([]struct{ ID, Address string }, len(cfg.Nodes.Workers))
-	for i, w := range cfg.Nodes.Workers {
-		workerRefs[i] = struct{ ID, Address string }{w.ID, w.Address}
+	// ── Election ──────────────────────────────────────────────────────────────
+	electionMgr, err := election.New(cfg.Cluster.NodeID, cfg.Cluster.SelfAddress, registry, logger)
+	if err != nil {
+		return fmt.Errorf("init election: %w", err)
 	}
-	healthProxy := health.New(cfg.Nodes.Master.ID, cfg.Nodes.Master.Address, workerRefs)
+	electionMgr.SetMaster(true)
 
-	// ── Build chi router ──────────────────────────────────────────────────────
-	mux := chi.NewRouter()
+	// ── Replicator ────────────────────────────────────────────────────────────
+	signer := masterauth.New(cfg.Auth.HMACSecret)
+	replicator := replication.New(registry, signer, logger)
 
-	// Global middleware — applied to every request in declaration order.
-	mux.Use(chimid.RequestID)
-	mux.Use(structuredLogger(logger))
-	mux.Use(chimid.Recoverer)
-	mux.Use(auth.StripExternalMasterToken) // MUST be first security middleware
-	mux.Use(limiter.Middleware)
-	mux.Use(auth.ClientAuth(cfg.Auth.ClientAPIKey))
+	// ── Query engine ──────────────────────────────────────────────────────────
+	executor := query.NewExecutor(store, true)
 
-	// Dedicated routes handled by the gateway itself.
-	mux.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok","service":"api-gateway"}`)) //nolint:errcheck
-	})
-	mux.Get("/cluster/status", healthProxy.Handler())
+	// ── HTTP API ──────────────────────────────────────────────────────────────
+	handler := api.New(executor, walLog, replicator, registry, logger)
 
-	// Everything else is handled by the router (proxy logic).
-	mux.Handle("/*", rt)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", handler.HealthHandler)
+	mux.HandleFunc("POST /query", handler.QueryHandler)
+	mux.HandleFunc("GET /cluster/status", handler.ClusterStatusHandler)
+	mux.HandleFunc("GET /internal/wal", handler.WALSinceHandler)
+	mux.HandleFunc("POST /internal/heartbeat", registry.HeartbeatHandler)
+	mux.HandleFunc("POST /internal/election", electionMgr.ElectionHandler)
 
-	// ── Start server ──────────────────────────────────────────────────────────
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      mux,
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
-		BaseContext: func(_ net.Listener) context.Context {
-			return context.Background()
-		},
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
 	}
 
-	// Graceful shutdown on SIGINT / SIGTERM.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("gateway listening", "addr", addr)
+		logger.Info("master listening", "addr", addr, "node_id", cfg.Cluster.NodeID)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- fmt.Errorf("listen: %w", err)
+			errCh <- err
 		}
 		close(errCh)
 	}()
 
 	select {
 	case sig := <-quit:
-		logger.Info("shutting down", "signal", sig)
+		logger.Info("shutdown", "signal", sig)
 	case err := <-errCh:
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		return fmt.Errorf("graceful shutdown: %w", err)
-	}
-	logger.Info("gateway stopped cleanly")
-	return nil
-}
-
-// structuredLogger returns a chi middleware that emits a structured log line
-// for every request.
-func structuredLogger(logger *slog.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ww := chimid.NewWrapResponseWriter(w, r.ProtoMajor)
-			start := time.Now()
-			defer func() {
-				logger.Info("request",
-					"method", r.Method,
-					"path", r.URL.Path,
-					"status", ww.Status(),
-					"bytes", ww.BytesWritten(),
-					"duration_ms", time.Since(start).Milliseconds(),
-					"request_id", chimid.GetReqID(r.Context()),
-					"remote", r.RemoteAddr,
-				)
-			}()
-			next.ServeHTTP(ww, r)
-		})
-	}
+	return srv.Shutdown(ctx)
 }
