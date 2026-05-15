@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/distributed-db/api-gateway/internal/auth"
+	"api-gateway/internal/auth"
 )
 
 // ── Signer.Generate ───────────────────────────────────────────────────────────

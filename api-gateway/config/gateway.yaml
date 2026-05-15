@@ -15,12 +15,10 @@ nodes:
       address: "http://worker2:8082"
 
 auth:
-  # Override with GATEWAY_HMAC_SECRET env var — never commit a real secret.
-  hmac_secret: "change-me-in-production"
+  hmac_secret: "GATEWAY_HMAC_SECRET"
   token_ttl: 30s
   # Optional: set to require external clients to present a bearer token.
-  # Override with GATEWAY_CLIENT_API_KEY env var.
-  client_api_key: ""
+  client_api_key: "GATEWAY_CLIENT_API_KEY"
 
 rate_limit:
   requests_per_second: 100

@@ -324,16 +324,49 @@ func (p *parser) parseCreateTable() (*Statement, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Collect type tokens until comma or closing paren.
+		// Collect type tokens until an unmatched comma or closing paren.
+		// Parens inside the type (e.g. VARCHAR(100)) are balanced.
 		var typeParts []string
+		depth := 0
 		for {
 			t := p.lex.peek()
-			if t.kind == tokComma || t.kind == tokRP || t.kind == tokEOF {
+			if t.kind == tokEOF {
+				break
+			}
+			if t.kind == tokLP {
+				depth++
+				typeParts = append(typeParts, p.lex.next().val)
+				continue
+			}
+			if t.kind == tokRP {
+				if depth > 0 {
+					depth--
+					typeParts = append(typeParts, p.lex.next().val)
+					continue
+				}
+				// depth == 0: this RP closes the column list
+				break
+			}
+			if t.kind == tokComma && depth == 0 {
 				break
 			}
 			typeParts = append(typeParts, p.lex.next().val)
 		}
-		cols = append(cols, ColDef{Name: colName.val, Type: strings.Join(typeParts, " ")})
+		// Rebuild the type string: no space before/after parens so that
+		// VARCHAR(100) doesn't become "VARCHAR ( 100 )".
+		typeStr := ""
+		for i, part := range typeParts {
+			if i == 0 {
+				typeStr = part
+			} else if part == "(" || typeParts[i-1] == "(" {
+				typeStr += part
+			} else if part == ")" {
+				typeStr += part
+			} else {
+				typeStr += " " + part
+			}
+		}
+		cols = append(cols, ColDef{Name: colName.val, Type: typeStr})
 		t := p.lex.peek()
 		if t.kind == tokRP {
 			p.lex.next()

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/distributed-db/master/internal/db"
-	"github.com/distributed-db/master/internal/wal"
+	"master/internal/db"
+	"master/internal/wal"
 )
 
 // Result is returned to the API handler after executing a statement.

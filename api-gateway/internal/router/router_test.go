@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/distributed-db/api-gateway/internal/auth"
-	"github.com/distributed-db/api-gateway/internal/router"
+	"api-gateway/internal/auth"
+	"api-gateway/internal/router"
 )
 
 // newTestBackend creates a test HTTP server that records received headers

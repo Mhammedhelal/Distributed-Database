@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/distributed-db/api-gateway/internal/ratelimit"
+	"api-gateway/internal/ratelimit"
 )
 
 // okHandler is a trivial upstream that always returns 200.

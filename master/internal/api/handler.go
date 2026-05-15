@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/distributed-db/master/internal/cluster"
-	"github.com/distributed-db/master/internal/query"
-	"github.com/distributed-db/master/internal/replication"
-	"github.com/distributed-db/master/internal/wal"
+	"master/internal/cluster"
+	"master/internal/query"
+	"master/internal/replication"
+	"master/internal/wal"
 )
 
 // Handler wires together all dependencies for the HTTP API.

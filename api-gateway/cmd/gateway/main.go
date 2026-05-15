@@ -12,15 +12,15 @@ import (
 	"syscall"
 	"time"
 
-	masterauth "github.com/distributed-db/master/internal/auth"
-	"github.com/distributed-db/master/config"
-	"github.com/distributed-db/master/internal/api"
-	"github.com/distributed-db/master/internal/cluster"
-	"github.com/distributed-db/master/internal/db"
-	"github.com/distributed-db/master/internal/election"
-	"github.com/distributed-db/master/internal/query"
-	"github.com/distributed-db/master/internal/replication"
-	"github.com/distributed-db/master/internal/wal"
+	masterauth "master/internal/auth"
+	"master/config"
+	"master/internal/api"
+	"master/internal/cluster"
+	"master/internal/db"
+	"master/internal/election"
+	"master/internal/query"
+	"master/internal/replication"
+	"master/internal/wal"
 )
 
 func main() {

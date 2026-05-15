@@ -19,7 +19,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/distributed-db/api-gateway/internal/auth"
+	"api-gateway/internal/auth"
 )
 
 // Config holds everything the router needs to know about the cluster topology.
