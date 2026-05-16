@@ -1,0 +1,7 @@
+/home/mohammed/dev/Distributed-Database/worker-node1/build/CMakeFiles/worker_node1.dir
+/home/mohammed/dev/Distributed-Database/worker-node1/build/CMakeFiles/edit_cache.dir
+/home/mohammed/dev/Distributed-Database/worker-node1/build/CMakeFiles/rebuild_cache.dir
+/home/mohammed/dev/Distributed-Database/worker-node1/build/CMakeFiles/list_install_components.dir
+/home/mohammed/dev/Distributed-Database/worker-node1/build/CMakeFiles/install.dir
+/home/mohammed/dev/Distributed-Database/worker-node1/build/CMakeFiles/install/local.dir
+/home/mohammed/dev/Distributed-Database/worker-node1/build/CMakeFiles/install/strip.dir

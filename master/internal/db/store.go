@@ -28,6 +28,15 @@ func New(dsn string) (*Store, error) {
 	d.SetMaxIdleConns(10)
 	return &Store{db: d}, nil
 }
+// RawQuery executes a raw SELECT and returns rows (bypasses the query parser).
+func (s *Store) RawQuery(sql string) ([]map[string]any, error) {
+	rows, err := s.db.Query(sql)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRows(rows)
+}
 
 // UseDB selects or creates the active database.
 func (s *Store) UseDB(name string) error {

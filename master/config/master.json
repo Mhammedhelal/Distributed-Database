@@ -1,12 +1,16 @@
 {
-  "server": { "port": 8080 },
-  "mysql": { "dsn": "root:rootpass@tcp(mysql-master:3306)/" },
+  "server": {
+    "port": 8080
+  },
+  "mysql": {
+    "dsn": "root:rootpass@tcp(localhost:3306)/"
+  },
   "cluster": {
     "node_id": "1",
-    "self_address": "http://master:8080",
+    "self_address": "http://localhost:8080",
     "worker_addresses": [
-      "http://worker1:8081",
-      "http://worker2:8082"
+      "http://localhost:8081",
+      "http://localhost:8082"
     ],
     "heartbeat_interval": "5s",
     "miss_threshold": 3
@@ -15,5 +19,7 @@
     "hmac_secret": "change-me-in-production",
     "token_ttl": "30s"
   },
-  "wal": { "path": "/data/master.wal" }
+  "wal": {
+    "path": "./master.wal"
+  }
 }

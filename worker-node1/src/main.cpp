@@ -10,7 +10,6 @@
 #include <string>
 
 // Resolve include paths for headers in subdirs
-#include "db/mysql_client.cpp"
 
 using json = nlohmann::json;
 

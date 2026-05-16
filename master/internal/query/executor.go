@@ -30,8 +30,23 @@ func NewExecutor(store *db.Store, isMaster bool) *Executor {
 	return &Executor{store: store, isMaster: isMaster}
 }
 
+// RawSelect executes sql directly against MySQL, bypassing the parser.
+func (e *Executor) RawSelect(sql string) ([]map[string]any, error) {
+	return e.store.RawQuery(sql)
+}
+
 // Execute runs stmt and returns a Result.
 func (e *Executor) Execute(stmt *Statement) (*Result, error) {
+	// Passthrough for information_schema queries — no WAL entry needed
+	if stmt.Kind == KindSelect &&
+		(strings.Contains(strings.ToLower(stmt.Table), "information_schema") ||
+			strings.HasPrefix(strings.ToLower(stmt.Table), "information_schema")) {
+		rows, err := e.store.Select(stmt.Table, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		return &Result{Rows: rows}, nil
+	}
 	switch stmt.Kind {
 	case KindCreateDB:
 		return e.createDB(stmt)

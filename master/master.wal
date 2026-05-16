@@ -1,0 +1,15 @@
+{"seq":1,"op":"DROP_DB","database":"","ts":"2026-05-16T08:29:45.487921054Z"}
+{"seq":2,"op":"CREATE_DB","database":"testdb","ts":"2026-05-16T08:30:14.603284985Z"}
+{"seq":3,"op":"CREATE_TABLE","database":"testdb","table":"users","cols":[{"name":"name","type":"VARCHAR(100)"},{"name":"email","type":"VARCHAR(255)"},{"name":"age","type":"INT"}],"ts":"2026-05-16T08:30:41.574560256Z"}
+{"seq":4,"op":"INSERT","database":"testdb","table":"users","data":{"age":30,"email":"alice@example.com","name":"Alice"},"ts":"2026-05-16T08:31:40.489354242Z"}
+{"seq":5,"op":"CREATE_TABLE","database":"testdb","table":"customers","cols":[{"name":"name","type":"VARCHAR(100)"},{"name":"email","type":"VARCHAR(255)"},{"name":"age","type":"INT"}],"ts":"2026-05-16T08:33:15.966365491Z"}
+{"seq":6,"op":"INSERT","database":"testdb","table":"customers","data":{"age":30,"email":"alice@example.com","name":"Alice"},"ts":"2026-05-16T08:33:28.894792879Z"}
+{"seq":7,"op":"DROP_DB","database":"testdb","ts":"2026-05-16T08:35:52.091663321Z"}
+{"seq":8,"op":"CREATE_DB","database":"testdb","ts":"2026-05-16T08:36:09.213396505Z"}
+{"seq":9,"op":"CREATE_DB","database":"db","ts":"2026-05-16T08:36:37.618414714Z"}
+{"seq":10,"op":"CREATE_TABLE","database":"db","table":"users","cols":[{"name":"name","type":"VARCHAR(100)"},{"name":"email","type":"VARCHAR(255)"},{"name":"age","type":"INT"}],"ts":"2026-05-16T08:36:46.478176851Z"}
+{"seq":11,"op":"CREATE_DB","database":"testdb","ts":"2026-05-16T08:54:33.889408988Z"}
+{"seq":12,"op":"CREATE_TABLE","database":"testdb","table":"users","cols":[{"name":"name","type":"VARCHAR(100)"},{"name":"email","type":"VARCHAR(255)"},{"name":"age","type":"INT"}],"ts":"2026-05-16T08:55:05.776504152Z"}
+{"seq":13,"op":"CREATE_DB","database":"test","ts":"2026-05-16T08:56:50.833662385Z"}
+{"seq":14,"op":"CREATE_TABLE","database":"test","table":"users","cols":[{"name":"name","type":"VARCHAR(100)"},{"name":"email","type":"VARCHAR(255)"},{"name":"age","type":"INT"}],"ts":"2026-05-16T08:57:11.998746504Z"}
+{"seq":15,"op":"INSERT","database":"test","table":"users","data":{"age":30,"email":"alice@example.com","name":"Alice"},"ts":"2026-05-16T08:57:19.649559926Z"}
