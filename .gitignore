@@ -2,5 +2,6 @@ worker-node1/build
 
 worker-node2/venv
 worker-node2/venvs
+worker-node2/__pycache__
 
 gui/venv
