@@ -1,0 +1,24 @@
+{
+  "server": {
+    "port": 8000,
+    "read_timeout": "15s",
+    "write_timeout": "15s",
+    "shutdown_timeout": "10s"
+  },
+  "nodes": {
+    "master": { "id": "master-1", "address": "http://master:8080" },
+    "workers": [
+      { "id": "worker-1", "address": "http://worker1:8081" },
+      { "id": "worker-2", "address": "http://worker2:8082" }
+    ]
+  },
+  "auth": {
+    "hmac_secret": "",
+    "token_ttl": "30s",
+    "client_api_key": ""
+  },
+  "rate_limit": {
+    "requests_per_second": 100,
+    "burst": 200
+  }
+}

@@ -6,9 +6,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-system-dev libboost-dev \
     libmysqlclient-dev libssl-dev \
     nlohmann-json3-dev \
+    libasio-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
+
+# Create the include directory before downloading
+RUN mkdir -p /src/include
 
 # Download Crow single-header (v1.1.0)
 RUN curl -L https://github.com/CrowCpp/Crow/releases/download/v1.1.0/crow_all.h \

@@ -5,20 +5,6 @@ import (
 	"strings"
 )
 
-const MasterTokenHeader = "X-Master-Token"
-
-// StripExternalMasterToken is the first middleware in the chain.
-// It removes X-Master-Token from ALL inbound external requests so that
-// no client can ever spoof master identity — the token is only ever added
-// internally by InjectMasterToken when the gateway forwards a replication
-// call to a slave.
-func StripExternalMasterToken(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Header.Del(MasterTokenHeader)
-		next.ServeHTTP(w, r)
-	})
-}
-
 // ClientAuth returns a middleware that enforces a bearer-token API key on
 // all requests. If apiKey is empty the middleware is a no-op (auth disabled).
 func ClientAuth(apiKey string) func(http.Handler) http.Handler {
@@ -28,9 +14,9 @@ func ClientAuth(apiKey string) func(http.Handler) http.Handler {
 			return next
 		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			auth := r.Header.Get("Authorization")
-			token := strings.TrimPrefix(auth, "Bearer ")
-			if token == "" || token == auth {
+			authHeader := r.Header.Get("Authorization")
+			token := strings.TrimPrefix(authHeader, "Bearer ")
+			if token == "" || token == authHeader {
 				writeJSONError(w, http.StatusUnauthorized, "missing Authorization header")
 				return
 			}

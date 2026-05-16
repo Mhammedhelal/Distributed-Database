@@ -1,57 +1,62 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
-// Config is the top-level gateway configuration.
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Nodes    NodesConfig    `yaml:"nodes"`
-	Auth     AuthConfig     `yaml:"auth"`
-	RateLimit RateLimitConfig `yaml:"rate_limit"`
+	Server    ServerConfig    `json:"server"`
+	Nodes     NodesConfig     `json:"nodes"`
+	Auth      AuthConfig      `json:"auth"`
+	RateLimit RateLimitConfig `json:"rate_limit"`
 }
 
 type ServerConfig struct {
-	Port            int           `yaml:"port"`
-	ReadTimeout     time.Duration `yaml:"read_timeout"`
-	WriteTimeout    time.Duration `yaml:"write_timeout"`
-	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	Port            int      `json:"port"`
+	ReadTimeout     Duration `json:"read_timeout"`
+	WriteTimeout    Duration `json:"write_timeout"`
+	ShutdownTimeout Duration `json:"shutdown_timeout"`
 }
 
 type NodesConfig struct {
-	Master  NodeAddr   `yaml:"master"`
-	Workers []NodeAddr `yaml:"workers"`
+	Master  NodeAddr   `json:"master"`
+	Workers []NodeAddr `json:"workers"`
 }
 
 type NodeAddr struct {
-	ID      string `yaml:"id"`
-	Address string `yaml:"address"` // e.g. "http://master:8080"
+	ID      string `json:"id"`
+	Address string `json:"address"`
 }
 
 type AuthConfig struct {
-	// HMACSecret is the shared secret used to sign X-Master-Token.
-	// Set via GATEWAY_HMAC_SECRET env var to avoid committing to VCS.
-	HMACSecret string `yaml:"hmac_secret"`
-	// TokenTTL is how long a generated token is considered valid.
-	TokenTTL time.Duration `yaml:"token_ttl"`
-	// ClientAPIKey is the optional bearer token external clients must present.
-	// Leave empty to disable client auth.
-	ClientAPIKey string `yaml:"client_api_key"`
+	HMACSecret   string   `json:"hmac_secret"`
+	TokenTTL     Duration `json:"token_ttl"`
+	ClientAPIKey string   `json:"client_api_key"`
 }
 
 type RateLimitConfig struct {
-	// RequestsPerSecond is the steady-state rate per client IP.
-	RequestsPerSecond float64 `yaml:"requests_per_second"`
-	// Burst is the maximum burst above the steady-state rate.
-	Burst int `yaml:"burst"`
+	RequestsPerSecond float64 `json:"requests_per_second"`
+	Burst             int     `json:"burst"`
 }
 
-// Load reads config from path, then overrides with env vars.
+type Duration struct{ time.Duration }
+
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	v, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("invalid duration %q: %w", s, err)
+	}
+	d.Duration = v
+	return nil
+}
+
 func Load(path string) (*Config, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -60,11 +65,10 @@ func Load(path string) (*Config, error) {
 	defer f.Close()
 
 	cfg := defaults()
-	if err := yaml.NewDecoder(f).Decode(cfg); err != nil {
+	if err := json.NewDecoder(f).Decode(cfg); err != nil {
 		return nil, fmt.Errorf("decode config: %w", err)
 	}
 
-	// Environment variable overrides (12-factor style).
 	if v := os.Getenv("GATEWAY_HMAC_SECRET"); v != "" {
 		cfg.Auth.HMACSecret = v
 	}
@@ -76,7 +80,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	if cfg.Auth.HMACSecret == "" {
-		return nil, fmt.Errorf("auth.hmac_secret is required (set GATEWAY_HMAC_SECRET)")
+		return nil, fmt.Errorf("auth.hmac_secret is required (set via GATEWAY_HMAC_SECRET)")
 	}
 
 	return cfg, nil
@@ -86,12 +90,12 @@ func defaults() *Config {
 	return &Config{
 		Server: ServerConfig{
 			Port:            8000,
-			ReadTimeout:     15 * time.Second,
-			WriteTimeout:    15 * time.Second,
-			ShutdownTimeout: 10 * time.Second,
+			ReadTimeout:     Duration{15 * time.Second},
+			WriteTimeout:    Duration{15 * time.Second},
+			ShutdownTimeout: Duration{10 * time.Second},
 		},
 		Auth: AuthConfig{
-			TokenTTL: 30 * time.Second,
+			TokenTTL: Duration{30 * time.Second},
 		},
 		RateLimit: RateLimitConfig{
 			RequestsPerSecond: 100,

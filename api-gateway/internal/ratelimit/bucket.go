@@ -6,6 +6,7 @@ package ratelimit
 import (
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -115,15 +116,14 @@ func (l *Limiter) cleanupLoop() {
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		// Use the leftmost (original client) IP.
-		if idx := len(xff); idx > 0 {
-			parts := splitFirst(xff, ',')
-			if ip := net.ParseIP(parts); ip != nil {
-				return ip.String()
-			}
+		first, _, _ := strings.Cut(xff, ",")
+		first = strings.TrimSpace(first)
+		if ip := net.ParseIP(first); ip != nil {
+			return ip.String()
 		}
 	}
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		if ip := net.ParseIP(xri); ip != nil {
+		if ip := net.ParseIP(strings.TrimSpace(xri)); ip != nil {
 			return ip.String()
 		}
 	}
@@ -132,24 +132,4 @@ func clientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
-}
-
-func splitFirst(s, sep byte) string {
-	for i := 0; i < len(s); i++ {
-		if s[i] == sep {
-			return trimSpace(s[:i])
-		}
-	}
-	return trimSpace(s)
-}
-
-func trimSpace(s string) string {
-	start, end := 0, len(s)
-	for start < end && (s[start] == ' ' || s[start] == '\t') {
-		start++
-	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
-		end--
-	}
-	return s[start:end]
 }
