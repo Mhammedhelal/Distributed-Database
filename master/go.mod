@@ -1,4 +1,4 @@
-module github.com/distributed-db/master
+module master
 
 go 1.22
 

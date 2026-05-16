@@ -1,0 +1,201 @@
+version: "3.9"
+
+# ── Shared environment ────────────────────────────────────────────────────────
+x-hmac: &hmac
+  HMAC_SECRET: ${HMAC_SECRET:-change-me-in-production}
+
+x-mysql-creds: &mysql-creds
+  MYSQL_ROOT_PASSWORD: rootpass
+  MYSQL_DATABASE: distdb
+
+networks:
+  cluster-net:
+    driver: bridge
+
+volumes:
+  mysql-master-data:
+  mysql-worker1-data:
+  mysql-worker2-data:
+  master-wal:
+
+    # =============================================================================
+services:
+
+  # ── MySQL: Master node ──────────────────────────────────────────────────────
+  mysql-master:
+    image: mysql:8.3
+    restart: unless-stopped
+    environment:
+      <<: *mysql-creds
+    volumes:
+      - mysql-master-data:/var/lib/mysql
+      - ./scripts/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - cluster-net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── MySQL: Worker 1 ─────────────────────────────────────────────────────────
+  mysql-worker1:
+    image: mysql:8.3
+    restart: unless-stopped
+    environment:
+      <<: *mysql-creds
+    volumes:
+      - mysql-worker1-data:/var/lib/mysql
+      - ./scripts/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - cluster-net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── MySQL: Worker 2 ─────────────────────────────────────────────────────────
+  mysql-worker2:
+    image: mysql:8.3
+    restart: unless-stopped
+    environment:
+      <<: *mysql-creds
+    volumes:
+      - mysql-worker2-data:/var/lib/mysql
+      - ./scripts/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - cluster-net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Master Node (Go) ─────────────────────────────────────────────────────────
+  master:
+    build:
+      context: ./master
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+    environment:
+      <<: *hmac
+      MYSQL_DSN: "root:rootpass@tcp(mysql-master:3306)/"
+      NODE_ID: "1"
+      SELF_ADDRESS: "http://master:8080"
+    volumes:
+      - master-wal:/data
+    networks:
+      - cluster-net
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Worker Node 1 (C++) ──────────────────────────────────────────────────────
+  worker1:
+    build:
+      context: ./worker-node1
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql-worker1:
+        condition: service_healthy
+      master:
+        condition: service_healthy
+    environment:
+      <<: *hmac
+      MYSQL_HOST: mysql-worker1
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASS: rootpass
+      MYSQL_DB: distdb
+      PORT: "8081"
+      NODE_ID: "2"
+    networks:
+      - cluster-net
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Worker Node 2 (Python) ────────────────────────────────────────────────────
+  worker2:
+    build:
+      context: ./worker-node2
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql-worker2:
+        condition: service_healthy
+      master:
+        condition: service_healthy
+    environment:
+      <<: *hmac
+      MYSQL_URL: "mysql+pymysql://root:rootpass@mysql-worker2:3306/distdb"
+      TOKEN_TTL_SECONDS: "30"
+      NODE_ID: "3"
+      PORT: "8082"
+    networks:
+      - cluster-net
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8082/health || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── API Gateway (Go) ─────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      master:
+        condition: service_healthy
+      worker1:
+        condition: service_healthy
+      worker2:
+        condition: service_healthy
+    environment:
+      GATEWAY_HMAC_SECRET: ${HMAC_SECRET:-change-me-in-production}
+      MASTER_ADDRESS: "http://master:8080"
+    volumes:
+      - ./api-gateway/config/gateway.json:/config/gateway.json:ro
+    networks:
+      - cluster-net
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Streamlit GUI ─────────────────────────────────────────────────────────────
+  gui:
+    build:
+      context: ./gui
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    environment:
+      GATEWAY_URL: "http://api-gateway:8000"
+      GATEWAY_API_KEY: ""
+    networks:
+      - cluster-net
+    ports:
+      - "8501:8501"
