@@ -190,7 +190,10 @@ elif page == "Table Browser":
             if not db_name.strip():
                 st.warning("Enter a database name")
             else:
-                res = run_query(f"SHOW TABLES")
+                res = run_query(
+                    f"SELECT TABLE_NAME FROM information_schema.TABLES "
+                    f"WHERE TABLE_SCHEMA = '{db_name}'"
+                )
                 if "error" in res:
                     st.error(res["error"])
                 elif res.get("rows"):
@@ -207,6 +210,7 @@ elif page == "Table Browser":
 
     with col2:
         chosen = st.session_state.get("_chosen_table")
+        db_name = st.session_state.get("_db", "")
         if chosen:
             st.subheader(f"Preview: `{chosen}`")
             tab1, tab2 = st.tabs(["Data (first 50)", "Schema"])
@@ -219,12 +223,15 @@ elif page == "Table Browser":
                 else:
                     st.info("Table is empty")
             with tab2:
-                res = run_query(f"DESCRIBE `{chosen}`")
+                res = run_query(
+                    f"SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY "
+                    f"FROM information_schema.COLUMNS "
+                    f"WHERE TABLE_SCHEMA = '{db_name}' AND TABLE_NAME = '{chosen}'"
+                )
                 if "error" in res:
                     st.error(res["error"])
                 elif res.get("rows"):
                     st.dataframe(pd.DataFrame(res["rows"]), use_container_width=True)
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Page 3: Cluster Health
