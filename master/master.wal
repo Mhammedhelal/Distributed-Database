@@ -13,3 +13,7 @@
 {"seq":13,"op":"CREATE_DB","database":"test","ts":"2026-05-16T08:56:50.833662385Z"}
 {"seq":14,"op":"CREATE_TABLE","database":"test","table":"users","cols":[{"name":"name","type":"VARCHAR(100)"},{"name":"email","type":"VARCHAR(255)"},{"name":"age","type":"INT"}],"ts":"2026-05-16T08:57:11.998746504Z"}
 {"seq":15,"op":"INSERT","database":"test","table":"users","data":{"age":30,"email":"alice@example.com","name":"Alice"},"ts":"2026-05-16T08:57:19.649559926Z"}
+{"seq":16,"op":"CREATE_DB","database":"test","ts":"2026-05-16T11:54:47.024664453Z"}
+{"seq":17,"op":"CREATE_TABLE","database":"test","table":"users","cols":[{"name":"name","type":"VARCHAR(100)"},{"name":"email","type":"VARCHAR(255)"},{"name":"age","type":"INT"}],"ts":"2026-05-16T11:54:53.789895208Z"}
+{"seq":18,"op":"CREATE_TABLE","database":"test","table":"users","cols":[{"name":"name","type":"VARCHAR(100)"},{"name":"email","type":"VARCHAR(255)"},{"name":"age","type":"INT"}],"ts":"2026-05-16T11:54:58.856948177Z"}
+{"seq":19,"op":"INSERT","database":"test","table":"users","data":{"age":30,"email":"alice@example.com","name":"Alice"},"ts":"2026-05-16T11:55:05.203545949Z"}

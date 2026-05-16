@@ -3,7 +3,7 @@
     "port": 8080
   },
   "mysql": {
-    "dsn": "root:rootpass@tcp(localhost:3306)/"
+    "dsn": "root:rootpass@tcp(localhost:3306)/distdb_master"
   },
   "cluster": {
     "node_id": "1",
