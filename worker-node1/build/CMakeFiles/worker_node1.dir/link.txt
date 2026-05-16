@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/worker_node1.dir/src/main.cpp.o CMakeFiles/worker_node1.dir/src/db/mysql_client.cpp.o -o worker_node1  /usr/lib/x86_64-linux-gnu/libmysqlclient.so /usr/lib/x86_64-linux-gnu/libssl.so /usr/lib/x86_64-linux-gnu/libcrypto.so 

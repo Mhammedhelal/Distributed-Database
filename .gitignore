@@ -1,0 +1,6 @@
+worker-node1/build
+
+worker-node2/venv
+worker-node2/venvs
+
+gui/venv
